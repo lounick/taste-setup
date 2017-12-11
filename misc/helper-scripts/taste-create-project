@@ -14,6 +14,23 @@ fi
 INFO="${COLORON}[INFO]${COLOROFF}"
 ERROR="${REDCOLORON}[ERROR]${COLOROFF}"
 
+# Check for command line params
+OPTS=`getopt -o r:: --long rosmsgs:: -n 'taste-create-project' -- "$@"`
+eval set -- "$OPTS"
+
+while true ; do
+    case "$1" in
+        -r|--rosmsgs)
+            export GEN_ROS_MSGS=1
+            case "$2" in
+                "") export ROS_MSGS="" ; shift 2;;
+                *) export ROS_MSGS=$2 ; shift 2;;
+            esac ;;
+        --) shift ; break;;
+        *) echo "Unknown parameter $1 found" ; exit 1 ;;
+    esac
+done
+
 
 if [ -f InterfaceView.aadl ]
 then
@@ -29,6 +46,10 @@ then
 else
     echo -e "${INFO} Using existing DataView.aadl"
 fi
+
+#Remove ROS related environment variables
+unset GEN_ROS_MSGS
+unset ROS_MSGS
 
 # Add the components from the components library
 FIRST=1
