@@ -99,36 +99,31 @@ def get_message_package(rospack, msg):
         msgs = list(rosmsg.list_msgs(msg.split('/')[0], rospack))
         if msg not in msgs:
             logging.error("Couldn't find the message {0}".format(msg))
-        else:
-            pkg_name = msg.split('/')[0]
-            msg_name = msg.split('/')[1]
+            return None, None
     # If there is no prefix find all the messages with that name.
     # If multiple messages with the same name exist print a message and exit.
     else:
         messages = list(rosmsg.rosmsg_search(rospack, rosmsg.MODE_MSG, msg))
         if len(messages) > 1:
-            s = ""
-            comma = ""
-            for m in messages:
-                s += comma + m
-                comma = ", "
             logging.error(
                 "Found {0} messages with name {1}. Please clarify the one you"
                 " want by prefixing the package name.\n"
-                "[".format(len(messages), msg) + s + "]")
+                "{3}".format(len(messages), msg, messages))
+            return None, None
         elif len(messages) == 1:
-            logging.debug("Found the message {0}".format(messages[0]))
-            pkg_name = messages[0].split('/')[0]
-            msg_name = messages[0].split('/')[1]
+            msg = messages[0]
         else:
             logging.error("Couldn't find the message {0}".format(msg))
+            return None, None
 
+    logging.debug("Found the message {0}".format(messages[0]))
+    pkg_name, msg_name = msg.split('/')
     return msg_name, pkg_name
 
 
 def get_python_msg_module(pkg):
     """
-    Returns the Python module that includes the of the given package.
+    Returns the Python module that includes the message of the given package.
     :param pkg: The name of the package.
     :return module: The Python module of the package (None if not found).
     """
@@ -159,14 +154,15 @@ def get_message_dict(module, msg):
     except KeyError as e:
         logging.error(
             "Couldn't find message {0} in module {1}".format(msg, module))
-        return msg_dict
+        return None
     try:
         msg_dict = dict(
             type=obj._type, slots=obj.__slots__, slot_types=obj._slot_types,
             full_text=obj._full_text)
-    except KeyError as e:
+    except AttributeError as e:
         logging.error(
             "Could not read the information of message {}.".format(msg))
+        logging.error(e)
         return None
     logging.debug("Dictionary for message {0} is:".format(msg))
     logging.debug(pprint.pformat(msg_dict))
@@ -179,8 +175,10 @@ def find_field_type(slot_type):
     of the array along the array type and its length.
     :param slot_type: The type of the slot whose field type is to be found.
     :return slot_type: The base data type of the slot (if it is an array).
-    :return field_type: The field_type of the slot.
-    :return length: The length of the array.
+    :return field_type: The field_type of the slot. Possible values are
+        'simple', 'fixed-length' and 'variable-length'.
+    :return length: The length of the array. The length of the array for
+        field_type 'fixed-length'.
     """
     bracket = "["
     length = 1
@@ -210,21 +208,18 @@ def find_ASN1_type(slot_type):
     :return lib_asn: The library the ASN.1 type belongs to.
     :return primitive: Flag to denote if the field type is primitive.
     """
-    primitive = False
-    if slot_type in ros_primitive_type:
-        asn1_type = primitive_types_map[slot_type]
-        lib_asn = libraries[asn1_type]
-        primitive = True
-    else:
-        composed_type = slot_type.split("/")
-        if len(composed_type) == 1:
-            logging.warn("The length of the composed_type is 1!")
-        asn1_type = composed_type[1]
-        # primitive_types_map[slot_type] = asn1_type
-        lib_asn = composed_type[1]+'-Types'
-        # libraries[asn1_type] = lib_asn
-        primitive = False
-    return asn1_type, lib_asn, primitive
+    index = ros_primitive_type.index(slot_type)
+    if index >= 0:
+        asn1_type = ASN1_type[index]
+        return asn1_type, libraries[asn1_type], True
+
+    composed_type = slot_type.split("/")
+    if len(composed_type) == 1:
+        logging.warn("The length of the composed_type is 1!")
+        return None, None, False
+    asn1_type = composed_type[1]
+    lib_asn = composed_type[1]+'-Types'
+    return asn1_type, lib_asn, False
 
 
 def generate_libraries_string(import_libraries):
@@ -233,17 +228,12 @@ def generate_libraries_string(import_libraries):
     :param import_libraries: The libraries to be imported.
     :return s: The libraries names in string format.
     """
-    s = "IMPORTS "
-    comma = ""
+    s = "IMPORTS"
     for key in import_libraries:
-        num_types = len(import_libraries[key])
-        for t in import_libraries[key]:
-            s += comma + t
-            comma = ", "
-        s += " FROM " + key + " "
-        comma = ""
-    s += ";"
-    s += "\n"
+        import_list = "{}".format(list(import_libraries[key])) 
+        # import_list includes brackets [1:-1] removes the brackets
+        s += " {} FROM {}".format(import_list[1:-1]), key))
+    s += ";\n"
     return s
 
 
@@ -262,21 +252,22 @@ def process_msg(rospack, msg):
     # Get the package contining the message
     msg_name, pkg_name = get_message_package(rospack, msg)
     if msg_name is None or pkg_name is None:
-        return msg_string, msg_deps
+        return None, None
+
     # Get the Python module contining the package's messages
     module = get_python_msg_module(pkg_name)
     if module is None:
-        return msg_string, msg_deps
+        return None, None
 
     # Get the message as a dictionary
     msg_dict = get_message_dict(module, msg_name)
     if msg_dict is None:
-        return msg_string, msg_deps
+        return None, None
 
     msg_string = (msg_name + "-Types DEFINITIONS ::=\nBEGIN\n")
     msg_deps = []
     slot_types = msg_dict["slot_types"]
-    slots = msg_dict["slots"]
+    slots = [s.replace("_","-") for s in msg_dict["slots"]]
     num_fields = len(slot_types)
 
     import_libraries = dict()
@@ -306,18 +297,18 @@ def process_msg(rospack, msg):
                         if x == "variable-length"]
 
     for i in fixed_indices:
-        msg_string += "L" + slots[i].replace("_", "-") + "::="
+        msg_string += "L" + slots[i] + "::="
         msg_string += " SEQUENCE (SIZE(0.." + str(lengths[i])+")) OF "
         msg_string += slot_asn1_types[i] + "\n"
         field_types[i] = "simple"
-        slot_asn1_types[i] = "L" + slots[i].replace("_", "-")
+        slot_asn1_types[i] = "L" + slots[i]
 
     for i in variable_indices:
-        msg_string += "V" + slots[i].replace("_", "-") + "::="
+        msg_string += "V" + slots[i] + "::="
         msg_string += " SEQUENCE (SIZE(0..256)) OF "
         msg_string += slot_asn1_types[i] + "\n"
         field_types[i] = "simple"
-        slot_asn1_types[i] = "V" + slots[i].replace("_", "-")
+        slot_asn1_types[i] = "V" + slots[i]
 
     if (num_fields == 1):
         if field_types[0] == "simple":
@@ -326,7 +317,7 @@ def process_msg(rospack, msg):
             if slots[0].lower() == slot_asn1_types[0].lower():
                 slots[0] += "-field"
             msg_string += msg_name + "::=\nSEQUENCE\n{\n"
-            msg_string += "\t" + slots[0].replace("_", "-") + "\t"
+            msg_string += "\t" + slots[0] + "\t"
             msg_string += slot_asn1_types[0] + "\n}\n"
     else:
         msg_string += msg_name + "::=\nSEQUENCE\n{\n"
@@ -337,7 +328,7 @@ def process_msg(rospack, msg):
                     slots[i] += "-" + slot_asn1_types[i]
                 if slots[i].lower() == slot_asn1_types[i].lower():
                     slots[i] += "-field"
-                msg_string += comma + "\t" + slots[i].replace("_", "-")
+                msg_string += comma + "\t" + slots[i]
                 msg_string += "\t" + slot_asn1_types[i]
                 comma = ",\n"
         msg_string += "\n}\n"
@@ -368,6 +359,9 @@ def main():
     print(args)
     messages = args.messages
     out_dir = args.output
+    if len(out_dir) == 0:
+        out_dir = "/tmp"
+    
     if out_dir[-1] != "/":
         out_dir += "/"
 
