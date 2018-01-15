@@ -133,10 +133,9 @@ def get_python_msg_module(pkg):
         logging.debug("Trying to import {0}".format(module_name))
         module = importlib.import_module(module_name)
     except ImportError as e:
-        logging.error(e.msg)
         logging.error(
-            "Could not load the package {0}."
-            "Is it in your package path?".format(module_name))
+                "Could not load the package {0}: {1}\n"
+                "Is it in your package path?".format(module_name, e.msg))
     return module
 
 
