@@ -236,7 +236,6 @@ def generate_libraries_string(import_libraries):
     s = "IMPORTS"
     for key in import_libraries:
         import_list = list(import_libraries[key])
-        # import_list includes brackets [1:-1] removes the brackets
         s += " {} FROM {}".format(', '.join(import_list), key)
     s += ";\n"
     return s
