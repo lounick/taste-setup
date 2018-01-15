@@ -41,7 +41,7 @@ primitive_types_map = {
 
 libraries = dict()
 
-for key in ['T_Boolean', 'T-Int8', 'T-Uint8', 'T-Int32', 'T-UInt32']:
+for key in ['T-Boolean', 'T-Int8', 'T-Uint8', 'T-Int32', 'T-UInt32']:
     libraries[key] = 'TASTE-BasicTypes'
 
 for key in ['T-Int16', 'T-Uint16', 'T-Int64', 'T-Uint64', 'T-Float',
@@ -116,7 +116,7 @@ def get_message_package(rospack, msg):
             logging.error("Couldn't find the message {0}".format(msg))
             return None, None
 
-    logging.debug("Found the message {0}".format(messages[0]))
+    logging.debug("Found the message {0}".format(msg))
     pkg_name, msg_name = msg.split('/')
     return msg_name, pkg_name
 
@@ -208,7 +208,12 @@ def find_ASN1_type(slot_type):
     :return lib_asn: The library the ASN.1 type belongs to.
     :return primitive: Flag to denote if the field type is primitive.
     """
-    index = ros_primitive_type.index(slot_type)
+    index = -1
+    try:
+        index = ros_primitive_type.index(slot_type)
+    except ValueError as e:
+        logging.debug(e)
+
     if index >= 0:
         asn1_type = ASN1_type[index]
         return asn1_type, libraries[asn1_type], True
@@ -230,9 +235,9 @@ def generate_libraries_string(import_libraries):
     """
     s = "IMPORTS"
     for key in import_libraries:
-        import_list = "{}".format(list(import_libraries[key])) 
+        import_list = list(import_libraries[key])
         # import_list includes brackets [1:-1] removes the brackets
-        s += " {} FROM {}".format(import_list[1:-1]), key))
+        s += " {} FROM {}".format(', '.join(import_list), key)
     s += ";\n"
     return s
 
