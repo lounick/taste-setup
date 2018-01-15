@@ -96,7 +96,12 @@ def get_message_package(rospack, msg):
     pkg_name = None
     # If message is prefixed search in that package only.
     if "/" in msg:
-        msgs = list(rosmsg.list_msgs(msg.split('/')[0], rospack))
+        try:
+            msgs = list(rosmsg.list_msgs(msg.split('/')[0], rospack))
+        except rospkg.ResourceNotFound:
+            logging.error("Couldn't find the package {}".format(msg.split('/')[0]))
+            return None, None
+
         if msg not in msgs:
             logging.error("Couldn't find the message {0}".format(msg))
             return None, None
@@ -106,9 +111,9 @@ def get_message_package(rospack, msg):
         messages = list(rosmsg.rosmsg_search(rospack, rosmsg.MODE_MSG, msg))
         if len(messages) > 1:
             logging.error(
-                "Found {0} messages with name {1}. Please clarify the one you"
+                "Found {} messages with name {}. Please clarify the one you"
                 " want by prefixing the package name.\n"
-                "{3}".format(len(messages), msg, messages))
+                "{}".format(len(messages), msg, messages))
             return None, None
         elif len(messages) == 1:
             msg = messages[0]
