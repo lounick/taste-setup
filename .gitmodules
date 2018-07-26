@@ -9,19 +9,25 @@
 	url = https://gitrepos.estec.esa.int/taste/speedometer.git
 [submodule "dmt"]
 	path = dmt
-	url = https://gitrepos.estec.esa.int/taste/dmt.git
+	url = git@github.com:lounick/DataModellingTools.git
+	branch = integrate_ros_A_mapper
+	#url = https://gitrepos.estec.esa.int/taste/dmt.git
 [submodule "pymsc"]
 	path = pymsc
 	url = https://gitrepos.estec.esa.int/taste/pymsc.git
 [submodule "orchestrator"]
 	path = orchestrator
-	url = https://gitrepos.estec.esa.int/taste/orchestrator.git
+	url = git@github.com:lounick/orchestrator.git
+	branch = rosbridge_integration
+	#url = https://gitrepos.estec.esa.int/taste/orchestrator.git
 [submodule "taste-MSC"]
 	path = taste-MSC
 	url = https://gitrepos.estec.esa.int/taste/taste-MSC.git
 [submodule "ocarina"]
 	path = ocarina
-	url = https://gitrepos.estec.esa.int/taste/ocarina
+	url = git@github.com:lounick/ocarina.git
+	#url = https://gitrepos.estec.esa.int/taste/ocarina
+	branch = rosbridge_integration
 [submodule "taste-model-checker"]
 	path = taste-model-checker
 	url = https://gitrepos.estec.esa.int/taste/taste-model-checker.git
@@ -39,7 +45,9 @@
 	url = https://gitrepos.estec.esa.int/taste/ellidiss-release.git
 [submodule "buildsupport"]
 	path = buildsupport
-	url = https://gitrepos.estec.esa.int/taste/buildsupport.git
+	url = git@github.com:lounick/buildsupport.git
+	branch = rosbridge_integration
+	#url = https://gitrepos.estec.esa.int/taste/buildsupport.git
 [submodule "msc-editor"]
 	path = msc-editor
 	url = https://gitrepos.estec.esa.int/taste/msc-editor.git
