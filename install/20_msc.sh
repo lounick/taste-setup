@@ -16,6 +16,12 @@ TARGET=${PREFIX}/share/AutoGUI/
 mkdir -p ${TARGET}
 cp -a * ${TARGET}
 
+# Install the ROS bridge required files
+cd $DIR/../misc/ros || exit 1
+TARGET=${PREFIX}/share/ros/
+mkdir -p ${TARGET}
+cp -a * ${TARGET}
+
 # Update the path
 PATH_CMD='export PATH=$PATH:$HOME/.local/bin'
 UpdatePATH
